@@ -1,39 +1,116 @@
-// const models = require("../../Config/Database/centralModelLoader");
-
-const { DepartmentModel } = require("../Models/ModelOperator/DataModel");
-
-// const Department = models.MAIN.Department;
-
-// const Department = DepartmentModel();
+const { Sequelize } = require('sequelize');
+const { loadModels } = require('../Models/ModelOperator/LoadModels');
 
 class DepartmentService {
-    async createDepartment(data) {
-        return await Department.create(data);
-    }
+  async createDepartment(health_id, data) {
+    const { Department } = await loadModels(health_id);
+    return await Department.create(data);
+  }
 
-    async getAllDepartments() {
-        return await Department.findAll();
-    }
+  async bulkCreateDepartments(health_id, data) {
+    const { Department } = await loadModels(health_id);
+    return await Department.bulkCreate(data);
+  }
 
-    async getDepartmentById(id) {
-        return await Department.findByPk(id);
-    }
+  async getAllDepartments(
+    health_id,
+    queryParams = {},
+    search = '',
+    page = 1,
+    pageSize = 10,
+    sortBy = 'name',
+    sortOrder = 'ASC'
+  ) {
+    try {
+      const { Department } = await loadModels(health_id);
 
-    async updateDepartment(id, data) {
-        const department = await Department.findByPk(id);
-        if (!department) {
-            throw new Error('Department not found');
+      const offset = (page - 1) * pageSize;
+      const limit = pageSize;
+
+      const filterConditions = {};
+
+      Object.keys(queryParams).forEach((key) => {
+        const value = queryParams[key];
+        if (value !== undefined && value !== null) {
+          filterConditions[key] = {
+            [Sequelize.Op.like]: `%${value}%`,
+          };
         }
-        return await department.update(data);
-    }
+      });
 
-    async deleteDepartment(id) {
-        const department = await Department.findByPk(id);
-        if (!department) {
-            throw new Error('Department not found');
-        }
-        return await department.destroy();
+      let searchConditions = [];
+      if (search) {
+        searchConditions = [
+          { name: { [Sequelize.Op.like]: `%${search}%` } },
+          { head_of_department: { [Sequelize.Op.like]: `%${search}%` } },
+          { email: { [Sequelize.Op.like]: `%${search}%` } },
+        ];
+      }
+
+      const whereConditions = {
+        ...filterConditions,
+        ...(searchConditions.length > 0 && {
+          [Sequelize.Op.or]: searchConditions,
+        }),
+      };
+
+      const validSortFields = Object.keys(Department.rawAttributes);
+      if (!validSortFields.includes(sortBy)) {
+        throw new Error(
+          `Invalid sortBy value: ${sortBy}. Allowed fields are: ${validSortFields.join(', ')}`
+        );
+      }
+      if (!['ASC', 'DESC'].includes(sortOrder)) {
+        throw new Error(`Invalid sortOrder value: ${sortOrder}`);
+      }
+
+      const order = [[sortBy, sortOrder]];
+
+      const departments = await Department.findAll({
+        where: whereConditions,
+        offset,
+        limit,
+        order,
+      });
+
+      const totalDepartments = await Department.count({
+        where: whereConditions,
+      });
+
+      return {
+        departments,
+        totalDepartments,
+        page,
+        pageSize,
+        totalPages: Math.ceil(totalDepartments / pageSize),
+      };
+    } catch (error) {
+      throw new Error('Error fetching departments: ' + error.message);
     }
+  }
+
+  async getDepartmentById(health_id, id) {
+    const { Department } = await loadModels(health_id);
+    return await Department.findByPk(id);
+  }
+
+  async updateDepartment(health_id, id, data) {
+    const { Department } = await loadModels(health_id);
+    const department = await Department.findByPk(id);
+    if (!department) {
+      throw new Error('Department not found');
+    }
+    return await department.update(data);
+  }
+
+  async deleteDepartment(health_id, id) {
+    const { Department } = await loadModels(health_id);
+    const department = await Department.findByPk(id);
+    if (!department) {
+      throw new Error('Department not found');
+    }
+    return await department.destroy();
+  }
 }
 
 module.exports = new DepartmentService();

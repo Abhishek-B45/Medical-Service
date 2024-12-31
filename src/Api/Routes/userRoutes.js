@@ -1,5 +1,5 @@
 // const express = require('express');
-// const routeConfig = require('../Routes/Config/userRouteConfig'); 
+// const routeConfig = require('../Routes/Config/userRouteConfig');
 
 // const userRouter = express.Router();
 
@@ -11,7 +11,7 @@
 //     try {
 //         userRouter[method](path, ...middlewares, controller);
 //     } catch (error) {
-//         throw new Error(`Failed to register route for path: ${path} - ${error.message}`); 
+//         throw new Error(`Failed to register route for path: ${path} - ${error.message}`);
 //     }
 // });
 

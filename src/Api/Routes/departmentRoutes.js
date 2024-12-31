@@ -11,7 +11,7 @@
 //     try {
 //         departmentRouter[method](path, ...middlewares, controller);
 //     } catch (error) {
-//         throw new Error(`Failed to register route for path: ${path} - ${error.message}`); 
+//         throw new Error(`Failed to register route for path: ${path} - ${error.message}`);
 //     }
 // });
 
@@ -20,16 +20,16 @@
 const express = require('express');
 const departmentController = require('../Controllers/DepartmentController');
 const validate = require('../Middlewares/validateMiddleware');
-const { departmentCreateSchema, departmentUpdateSchema } = require('../Middlewares/Joi_Validations/deptSchema');
+const { createDepartmentValidation, updateDepartmentValidation } = require('../Middlewares/Joi_Validations/deptSchema');
+const uploadMiddleware = require('../Middlewares/uploadMiddleware');
 const departmentRouter = express.Router();
 
 departmentRouter
-    .post('/', validate(departmentCreateSchema), departmentController.createDepartment)
-    .get('/', departmentController.getAllDepartments)
-    .get('/:id', departmentController.getDepartmentById)
-    .put('/:id', validate(departmentUpdateSchema), departmentController.updateDepartment)
-    .delete('/:id', departmentController.deleteDepartment)
+  .post('/', validate(createDepartmentValidation), departmentController.createDepartment)
+  .post('/bulk', uploadMiddleware, departmentController.bulkCreateDepartments)
+  .get('/', departmentController.getAllDepartments)
+  .get('/:id', departmentController.getDepartmentById)
+  .put('/:id', validate(updateDepartmentValidation), departmentController.updateDepartment)
+  .delete('/:id', departmentController.deleteDepartment);
 
 module.exports = departmentRouter;
-
-

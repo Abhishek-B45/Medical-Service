@@ -6,9 +6,7 @@ module.exports = {
   // Resize an image
   resizeImage: async (inputPath, outputPath, width, height) => {
     try {
-      await sharp(inputPath)
-        .resize(width, height)
-        .toFile(outputPath);
+      await sharp(inputPath).resize(width, height).toFile(outputPath);
       console.log(`Image resized successfully and saved to ${outputPath}`);
     } catch (error) {
       console.error(`Error resizing image: ${error.message}`);
@@ -19,9 +17,7 @@ module.exports = {
   // Convert an image to a different format (JPEG, PNG, WebP, etc.)
   convertImageFormat: async (inputPath, outputPath, format) => {
     try {
-      await sharp(inputPath)
-        .toFormat(format)
-        .toFile(outputPath);
+      await sharp(inputPath).toFormat(format).toFile(outputPath);
       console.log(`Image converted to ${format} and saved to ${outputPath}`);
     } catch (error) {
       console.error(`Error converting image format: ${error.message}`);
@@ -45,9 +41,7 @@ module.exports = {
   // Generate a thumbnail from an image
   createThumbnail: async (inputPath, outputPath, size) => {
     try {
-      await sharp(inputPath)
-        .resize(size, size) // Creating a square thumbnail
-        .toFile(outputPath);
+      await sharp(inputPath).resize(size, size).toFile(outputPath);
       console.log(`Thumbnail created and saved to ${outputPath}`);
     } catch (error) {
       console.error(`Error creating thumbnail: ${error.message}`);
@@ -90,58 +84,3 @@ module.exports = {
     }
   },
 };
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-const imageHelper = require('./imageHelper');
-
-// Paths for image files
-const inputImage = './example.jpg';
-const outputImage = './output.jpg';
-
-// Example: Resize an image
-imageHelper.resizeImage(inputImage, './resized.jpg', 300, 300);
-
-// Example: Convert image to PNG
-imageHelper.convertImageFormat(inputImage, './converted.png', 'png');
-
-// Example: Compress image (JPEG quality)
-imageHelper.compressImage(inputImage, './compressed.jpg', 80);
-
-// Example: Generate a thumbnail
-imageHelper.createThumbnail(inputImage, './thumbnail.jpg', 100);
-
-// Example: Get image metadata
-imageHelper.getImageMetadata(inputImage).then((metadata) => {
-  console.log('Metadata:', metadata);
-});
-
-// Example: Convert image to Base64
-imageHelper.convertImageToBase64(inputImage).then((base64String) => {
-  console.log('Base64 String:', base64String);
-});
-
-// Example: Save Base64 string as image
-const base64String = '...'; // Your Base64 string
-imageHelper.saveBase64AsImage(base64String, './output-from-base64.jpg');

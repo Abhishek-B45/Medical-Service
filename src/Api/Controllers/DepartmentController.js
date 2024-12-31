@@ -1,58 +1,262 @@
+const { parseCSV } = require('../Helpers/excelHelper');
+const { deleteFile } = require('../Helpers/fileHelper');
+const { createDepartmentValidation } = require('../Middlewares/Joi_Validations/deptSchema');
 const departmentService = require('../Services/DepartmentService');
 
-class DepartmentController {
-    async createDepartment(req, res) {
-        try {
-            const data = req.body;
-            const department = await departmentService.createDepartment(data);
-            res.status(201).json(department);
-        } catch (error) {
-            res.status(400).json({ message: error.message });
-        }
+module.exports = {
+  createDepartment: async (req, res) => {
+    try {
+      const health_id = req.user.health_id;
+      const data = req.body;
+      const department = await departmentService.createDepartment(
+        health_id,
+        data
+      );
+      return res.status(201).json({
+        name: `OK`,
+        status: true,
+        code: 201,
+        message: 'Department created successfully',
+        data: department,
+      });
+    } catch (error) {
+      return res.status(400).json({
+        status: false,
+        message: error.message,
+      });
     }
+  },
 
-    async getAllDepartments(req, res) {
+  bulkCreateDepartments: async (req, res) => {
+    try {
+      const health_id = req.user.health_id;
+      if (!req.file) {
+        return res.status(400).json({ message: 'No file uploaded' });
+      }
+
+      const rows = await parseCSV(req.file.path);
+      deleteFile(req.file.path);
+
+      const parseData = (row) => {
+        const [day, month, year] = row.date_founded?.split('-') || [];
+        const formattedDateFounded = year
+          ? new Date(`${year}-${month}-${day}`).toISOString()
+          : null;
+
+        return {
+          name: row.name,
+          head_of_department: row.head_of_department,
+          branch: row.branch,
+          branch_of_department: row.branch_of_department,
+          contact_number: row.contact_number || null,
+          address: row.address,
+          email: row.email,
+          department_code: row.department_code,
+          status: row.status || 'Active',
+          date_founded: formattedDateFounded,
+          num_employees: parseInt(row.num_employees, 10) || 0,
+          description: row.description || null,
+          created_by: row.created_by,
+          updated_by: row.updated_by,
+        };
+      };
+
+      const departments = [];
+      const errors = [];
+
+      for (const [index, row] of rows.entries()) {
         try {
-            const departments = await departmentService.getAllDepartments();
-            res.status(200).json(departments);
-        } catch (error) {
-            res.status(500).json({ message: error.message });
-        }
-    }
+          const parsedRow = parseData(row);
+          const { error } = createDepartmentValidation.validate(parsedRow);
 
-    async getDepartmentById(req, res) {
-        try {
-            const { id } = req.params;
-            const department = await departmentService.getDepartmentById(id);
-            if (!department) {
-                return res.status(404).json({ message: 'Department not found' });
-            }
-            res.status(200).json(department);
-        } catch (error) {
-            res.status(500).json({ message: error.message });
+          if (error) {
+            errors.push({
+              row: index + 1,
+              error: error.details[0]?.message || 'Unknown validation error',
+            });
+          } else {
+            departments.push(parsedRow);
+          }
+        } catch (parseError) {
+          errors.push({
+            row: index + 1,
+            error: `Error parsing row: ${parseError.message}`,
+          });
         }
-    }
+      }
 
-    async updateDepartment(req, res) {
-        try {
-            const { id } = req.params;
-            const data = req.body;
-            const department = await departmentService.updateDepartment(id, data);
-            res.status(200).json(department);
-        } catch (error) {
-            res.status(400).json({ message: error.message });
-        }
-    }
+      if (errors.length > 0) {
+        return res.status(400).json({
+          message: 'Some rows have validation errors',
+          errors,
+        });
+      }
 
-    async deleteDepartment(req, res) {
-        try {
-            const { id } = req.params;
-            await departmentService.deleteDepartment(id);
-            res.status(204).send();
-        } catch (error) {
-            res.status(500).json({ message: error.message });
-        }
-    }
-}
+      const deptResult = await departmentService.bulkCreateDepartments(
+        health_id,
+        departments
+      );
 
-module.exports = new DepartmentController();
+      return res.status(201).json({
+        name: 'OK',
+        status: true,
+        code: 201,
+        message: 'Departments uploaded successfully',
+        result: {
+          file: req.file,
+          departments: deptResult,
+          count: departments.length,
+          message: 'Departments data processed and saved successfully.',
+        },
+      });
+    } catch (err) {
+      console.error('Error in bulkCreateDepartments:', err);
+      return res.status(500).json({
+        name: 'Error',
+        status: false,
+        code: 500,
+        message: 'Internal server error',
+        error: err.message,
+      });
+    }
+  },
+
+  getAllDepartments: async (req, res) => {
+    try {
+      const health_id = req.user.health_id;
+      const {
+        page = 1,
+        pageSize = 10,
+        search = '',
+        sortBy = 'name',
+        sortOrder = 'ASC',
+        ...filters
+      } = req.query;
+
+      const { departments, totalDepartments, totalPages } =
+        await departmentService.getAllDepartments(
+          health_id,
+          filters,
+          search,
+          parseInt(page),
+          parseInt(pageSize),
+          sortBy,
+          sortOrder
+        );
+
+      res.status(200).json({
+        name: `OK`,
+        status: true,
+        code: 200,
+        message: 'Departments fetched successfully',
+        data: departments,
+        pagination: {
+          totalDepartments,
+          totalPages,
+          currentPage: parseInt(page),
+          pageSize: parseInt(pageSize),
+        },
+      });
+    } catch (error) {
+      res.status(500).json({
+        status: false,
+        message: error.message,
+      });
+    }
+  },
+
+  getDepartmentById: async (req, res) => {
+    try {
+      const health_id = req.user.health_id;
+      const { id } = req.params;
+      const department = await departmentService.getDepartmentById(
+        health_id,
+        id
+      );
+
+      if (!department) {
+        return res.status(404).json({
+          status: false,
+          code: 404,
+          message: 'Department not found',
+        });
+      }
+
+      return res.status(200).json({
+        name: `OK`,
+        status: true,
+        code: 200,
+        message: 'Department fetched successfully',
+        data: department,
+      });
+    } catch (error) {
+      return res.status(500).json({
+        status: false,
+        code: 500,
+        message: 'Internal server error',
+        error: error.message,
+      });
+    }
+  },
+
+  updateDepartment: async (req, res) => {
+    try {
+      const health_id = req.user.health_id;
+      const { id } = req.params;
+      const data = req.body;
+      const department = await departmentService.updateDepartment(
+        health_id,
+        id,
+        data
+      );
+
+      if (!department) {
+        return res.status(404).json({
+          status: false,
+          message: 'Department not found',
+        });
+      }
+
+      return res.status(200).json({
+        status: true,
+        message: 'Department updated successfully',
+        data: department,
+      });
+    } catch (error) {
+      return res.status(400).json({
+        status: false,
+        message: error.message,
+      });
+    }
+  },
+
+  deleteDepartment: async (req, res) => {
+    try {
+      const health_id = req.user.health_id;
+      const { id } = req.params;
+      const department = await departmentService.deleteDepartment(
+        health_id,
+        id
+      );
+
+      if (!department) {
+        return res.status(404).json({
+          status: false,
+          message: 'Department not found',
+        });
+      }
+      return res.status(200).json({
+        name: 'OK',
+        status: true,
+        code: 200,
+        message: 'Department deleted successfully',
+      });
+    } catch (error) {
+      return res.status(500).json({
+        status: false,
+        message: 'Internal server error',
+        error: error.message,
+      });
+    }
+  },
+};
